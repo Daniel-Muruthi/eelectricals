@@ -144,3 +144,8 @@ def logoutuser(request):
 
 class IndexView(TemplateView):
 	template_name = 'index.html'
+
+
+def index(request):
+
+	return render(request, 'index.html')
