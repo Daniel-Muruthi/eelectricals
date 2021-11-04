@@ -149,3 +149,25 @@ class IndexView(TemplateView):
 def index(request):
 
 	return render(request, 'index.html')
+
+def descriptionView(request):
+	products= Product.objects.all()
+	if request.method == 'POST':
+		data=request.POST
+		image=request.FILES.get('image')
+		
+		if data['product']!='none':
+			product=Product.objects.get(id=data['product'])
+		elif data['product_new']!='':
+			product, created=Product.objects.get_or_create(name=data['product_new'])
+		else:
+			product=None
+		photo = Image.objects.create(
+			product=product,
+			description=data['description'],
+			image=image
+			)
+		return redirect('description')
+		
+	context= {'products':products}
+	return render(request, 'viewdescription.html')
