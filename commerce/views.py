@@ -2,13 +2,14 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate,login,logout as dj_login
 from django.urls import reverse, reverse_lazy
 from django.views.generic import DetailView, FormView,UpdateView, CreateView, DeleteView, TemplateView
-from .forms import CreateUserForm
+from .forms import AddProductForm, CreateUserForm
 from django.contrib import messages
 from django.http import JsonResponse
 import json
 import datetime
 from .models import * 
 from .utils import cartData, guestOrder
+from django.contrib.auth.decorators import login_required
 
 def store(request):
 	data = cartData(request)
@@ -135,9 +136,9 @@ def loginpage(request):
       
     return render(request,'registration/login.html')
 
-def logoutuser(request):
+# def logoutuser(request):
     
-    return redirect(reverse('login'))
+#     return redirect('store')
 
 
 ######################index page############
@@ -147,27 +148,70 @@ class IndexView(TemplateView):
 
 
 def index(request):
+	products= Product.objects.all()
 
-	return render(request, 'index.html')
+	context= {'products':products}
 
+	return render(request, 'index.html', context)
+#######################################
 def descriptionView(request):
 	products= Product.objects.all()
-	if request.method == 'POST':
-		data=request.POST
-		image=request.FILES.get('image')
-		
-		if data['product']!='none':
-			product=Product.objects.get(id=data['product'])
-		elif data['product_new']!='':
-			product, created=Product.objects.get_or_create(name=data['product_new'])
-		else:
-			product=None
-		photo = Image.objects.create(
-			product=product,
-			description=data['description'],
-			image=image
-			)
-		return redirect('description')
+	
 		
 	context= {'products':products}
 	return render(request, 'viewdescription.html')
+###########################################
+
+class DescriptionView(DetailView):
+	model = Product
+	template_name = 'viewdescription.html'
+
+	form = AddProductForm()
+	def form_valid(self, form):
+		form.instance.author = self.request.user
+		return super().form_valid(form)
+		
+	def product(self, request, pk, *args, **kwargs):
+		form = AddProductForm(request.POST)
+		if form.is_valid():
+			product = self.get_object()
+			form.instance.user = request.user
+			form.instance.product = product
+			form.save()
+			
+		return redirect(reverse('description', kwargs={"form":form, 'id':product.pk}))
+		
+	def get_context_data(self, **kwargs):
+		context = super().get_context_data(**kwargs)
+		context["form"] = self.form
+		return context
+	############################profile info##########
+
+def customernews(request):
+	mycustomer = Customer.objects.filter(user=request.user).first()
+	myorders = Order.objects.filter(is_ordered=True, owner=mycustomer)
+	context = {
+		'myorders':myorders
+	}
+	return render(request, 'profile.html', context)
+
+
+def product_list(request):
+	object_list = Product.objects.all()
+	filtered_orders = Order.objects.filter(owner=request.user.profile, is_ordered=False)
+	current_order_products = []
+	if filtered_orders.exists():
+		user_order = filtered_orders[0]
+		user_order_items = user_order_items.all()
+		current_order_products = [product.product for product in user_order_items]
+		context = {
+			'object_list': object_list,
+			'current_order_products': current_order_products
+		}
+		return render(request, "productlist.html", context)
+
+
+def myproducts(request):
+	products = Product.objects.all()
+
+	return render(request, 'product.html', {'products':products})
